@@ -13,7 +13,16 @@
 
   <style>
     /* 🌍 Base Styles */
-    * { margin: 0; padding: 0; }
+    * { margin: 0; padding: 0;}
+    
+    *:focus {
+  outline: none !important;
+}
+html, body {
+  scroll-behavior: auto !important;
+}
+    
+    
     body {
       font-family: 'Urbanist', sans-serif;
       background-color: var(--bg-primary);
@@ -602,6 +611,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const now = new Date();
   const currentMonthIdx = now.getMonth();
   const currentYear = now.getFullYear();
+  //--- GLOBAL selected month ---
+  // Initialize with the full name of the current month
+  let selectedMonth = monthNames[currentMonthIdx]; 
 
   // Elements
   const slider = document.getElementById("monthSlider");
@@ -657,29 +669,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   // Generate month slider
-monthNames.forEach((m, i) => {
-  const div = document.createElement("div");
-  div.textContent = m.slice(0, 3);
-  div.className = "month-item";
+  monthNames.forEach((m, i) => {
+    const div = document.createElement("div");
+    div.textContent = m.slice(0, 3);
+    div.className = "month-item";
 
-  if (i === currentMonthIdx) {
-    div.classList.add("active");
-    title.textContent = m.slice(0,3) + "'s Maintenance Tasks";   // FIXED
-  }
+    if (i === currentMonthIdx) {
+      div.classList.add("active");
+      title.textContent = m + "'s Maintenance Tasks"; 
+    }
 
-  div.addEventListener("click", () => {
-    document.querySelectorAll(".month-item")
-      .forEach(el => el.classList.remove("active"));
+    div.addEventListener("click", () => {
+      document.querySelectorAll(".month-item")
+        .forEach(el => el.classList.remove("active"));
 
-    div.classList.add("active");
+      div.classList.add("active");
+      
+      selectedMonth = m; // Update global month variable
 
-    title.textContent = m.slice(0,3) + "'s Maintenance Tasks";  // FIXED
+      title.textContent = m + "'s Maintenance Tasks"; 
 
-    filterTasksByMonth(m);
+      // Reset search input on month change
+      searchInput.value = ""; 
+
+      filterTasksByMonth(m);
+    });
+
+    slider.appendChild(div);
   });
-
-  slider.appendChild(div);
-});
 
 
   // scroll to current month
@@ -710,7 +727,8 @@ monthNames.forEach((m, i) => {
       const taskYear = currentYear;
       const taskMonth = acc.getAttribute("data-month");
       const taskName = acc.getAttribute("data-task");
-   // Find matching saved task
+   
+      // Find matching saved task
       const match = savedTasks.find(t =>
           t.taskName === taskName &&
           t.taskMonth === taskMonth &&
@@ -726,14 +744,21 @@ monthNames.forEach((m, i) => {
           header.classList.remove("checked");
       }
 
-
-      // accordion toggle
+      // ⭐ FIX: Accordion click logic for smooth, non-scrolling open/close
       header.addEventListener("click", (e) => {
-        // if clicked on the checkbox, ignore (handled by change event)
-        if (e.target.type === "checkbox") return;
+        // Prevent click if target is the checkbox or its label area.
+        if (e.target.type === "checkbox" || e.target.closest('label')?.querySelector('.task-check') === checkbox) {
+            return;
+        }
+
+        // 1. Primary Fix: Stop the browser from scrolling the element into view.
+        e.preventDefault(); 
+        
+        const scrollY = window.scrollY; // Save scroll position as a safety measure
 
         const isOpen = acc.classList.contains("open");
-        // close all
+
+        // close all other accordions
         document.querySelectorAll(".accordion").forEach(a => {
           a.classList.remove("open");
           a.querySelector(".accordion-content").style.maxHeight = 0;
@@ -743,10 +768,15 @@ monthNames.forEach((m, i) => {
 
         if (!isOpen) {
           acc.classList.add("open");
-          content.style.maxHeight = content.scrollHeight + "px";
+          // 2. Secondary Fix: Use requestAnimationFrame for smoother animation and scroll restore
+          requestAnimationFrame(() => {
+            content.style.maxHeight = content.scrollHeight + "px";
+            window.scrollTo(0, scrollY); 
+          });
           if (icon) icon.style.transform = "rotate(90deg)";
         }
       });
+
 
       // checkbox change logic
       checkbox.addEventListener("change", async (ev) => {
@@ -810,40 +840,33 @@ monthNames.forEach((m, i) => {
   }
 
   // Filter tasks by month
-function filterTasksByMonth(monthName) {
-    console.log("Filtering tasks for:", monthName);
+  function filterTasksByMonth(monthName) {
+      const allTasks = Array.from(document.querySelectorAll("#accordion-container .accordion"));
 
-    const allTasks = Array.from(document.querySelectorAll("#accordion-container .accordion"));
+      allTasks.forEach(task => {
+          const taskMonth = task.getAttribute("data-month");
 
-    allTasks.forEach(task => {
-        const taskMonth = task.getAttribute("data-month");
+          // Show tasks that belong to selected month
+          if (!taskMonth || taskMonth === monthName) {
+              task.style.display = "block";
+          } else {
+              // Hide tasks from other months
+              task.style.display = "none";
 
-        // Show tasks that belong to selected month
-        if (!taskMonth || taskMonth === monthName) {
-            task.style.display = "block";
-        } else {
-            // Hide tasks from other months
-            task.style.display = "none";
+              // Close if opened
+              task.classList.remove("open");
 
-            // Close if opened
-            task.classList.remove("open");
+              const content = task.querySelector(".accordion-content");
+              if (content) content.style.maxHeight = 0;
 
-            const content = task.querySelector(".accordion-content");
-            if (content) content.style.maxHeight = 0;
+              const ic = task.querySelector(".material-icons");
+              if (ic) ic.style.transform = "rotate(0deg)";
+          }
+      });
 
-            const ic = task.querySelector(".material-icons");
-            if (ic) ic.style.transform = "rotate(0deg)";
-        }
-    });
-
-    // 🔥 Important: Update checkmarks for this month
-    if (typeof applyCheckedTasksForMonth === "function") {
-        applyCheckedTasksForMonth(monthName);
-    }
-
-    // Update progress bar only for visible tasks
-    updateProgress();
-}
+      // Update progress bar only for visible tasks
+      updateProgress();
+  }
 
 
   // Update progress bar based on visible tasks
@@ -861,47 +884,53 @@ function filterTasksByMonth(monthName) {
     if (progressText) progressText.textContent = done + " of " + total + " tasks completed";
   }
 
+
   // Search filter
-if (searchInput) {
-  searchInput.addEventListener("input", () => {
+  if (searchInput) {
+    searchInput.addEventListener("input", () => {
+      const query = searchInput.value.toLowerCase().trim();
+      const tasks = document.querySelectorAll("#accordion-container .accordion");
+      // Use the global selectedMonth variable (full name, e.g., "January")
+      const currentMonth = selectedMonth; 
 
-    const query = searchInput.value.toLowerCase().trim();
-    const tasks = document.querySelectorAll("#accordion-container .accordion");
-    const current = selectedMonth.toLowerCase();
+      tasks.forEach(task => {
+        // Use data-task attribute for reliable name
+        const taskMonth = task.getAttribute("data-month")?.toLowerCase() || "";
+        const taskTitle = task.getAttribute("data-task")?.toLowerCase() || ""; 
 
-    tasks.forEach(task => {
-      const taskMonth = task.getAttribute("data-month")?.toLowerCase();
-      const titleText = task.querySelector(".accordion-header span")?.textContent.toLowerCase() || "";
+        // Determine if the task is relevant to the current month view.
+        const isCurrentMonthTask = taskMonth === currentMonth.toLowerCase() || taskMonth === ""; 
 
-      // When input cleared → show everything for selected month
-      if (query === "") {
-        task.style.display = (taskMonth === current) ? "block" : "none";
-        return;
-      }
+        if (isCurrentMonthTask) {
+          // If query is empty, show all current month tasks
+          if (query === "") {
+            task.style.display = "block";
+          } 
+          // If query is not empty and the task title matches, show it
+          else if (taskTitle.includes(query)) {
+            task.style.display = "block";
+          } 
+          // Hide current month tasks that don't match the query
+          else {
+            task.style.display = "none";
+          }
+        } else {
+          // Keep tasks from other months hidden
+          task.style.display = "none";
+        }
+      });
 
-      // Show only those matching query in selected month
-      if (taskMonth === current && titleText.includes(query)) {
-        task.style.display = "block";
-      } else {
-        task.style.display = "none";
-      }
+      // Update progress after search
+      updateProgress();
     });
-
-  });
-}
-
-
-
-
-
-
+  }
 
 
   // Initialize everything
   initializeAccordionsAndCheckboxes();
 
   // Default filter: current month
-  filterTasksByMonth(monthNames[currentMonthIdx] || monthNames[0]);
+  filterTasksByMonth(selectedMonth);
 
   // Also, when page first loads, ensure progress is set
   updateProgress();
