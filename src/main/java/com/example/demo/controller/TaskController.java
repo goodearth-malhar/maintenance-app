@@ -66,11 +66,9 @@ public class TaskController {
     @GetMapping("/user/maintenance-tasks")
     @ResponseBody
     public List<Task> getMaintenanceTasks(@RequestParam(required = false) String month) {
-        System.out.println("🟢 Month received from frontend: " + month);
 
         // 1️⃣ Check if month is provided
         if (month == null || month.trim().isEmpty()) {
-            System.out.println("⚠️ No month provided — returning empty list.");
             return List.of();
         }
 
@@ -89,7 +87,6 @@ public class TaskController {
                 .filter(t -> t.getMonth() != null && t.getMonth().trim().toLowerCase().equals(formattedMonth))
                 .toList();
 
-        System.out.println("✅ Found " + filteredTasks.size() + " tasks for " + month);
         return filteredTasks;
     }
 

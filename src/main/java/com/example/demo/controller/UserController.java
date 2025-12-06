@@ -83,11 +83,9 @@ public class UserController {
             };
             model.addAttribute("months", months);
         String selectedHome = (String) session.getAttribute("selectedHome");
-        System.out.println("DEBUG >>> Entering dashboard | SessionID: " + session.getId() + " | selectedHome=" + selectedHome);
 
         // 🔹 Recover selectedHome if missing
         if (selectedHome == null) {
-            System.out.println("DEBUG >>> No selectedHome in session, recovering from user profile...");
             Boolean isOwner = (Boolean) session.getAttribute("isOwner");
             Long userId = (Long) session.getAttribute("userId");
             Long addedUserId = (Long) session.getAttribute("addedUserId");
@@ -116,7 +114,6 @@ public class UserController {
         // ✅ Always load all master tasks from Task.java
         List<Task> allTasks = taskRepository.findAll();
         model.addAttribute("tasks", allTasks);
-        System.out.println("DEBUG >>> Loaded " + allTasks.size() + " tasks from Task table.");
 
         // 🔹 Continue your owner vs. added user logic (unchanged)
         if (Boolean.TRUE.equals(session.getAttribute("isOwner"))) {
@@ -304,11 +301,6 @@ public class UserController {
     	session.invalidate(); // ✅ clear everything
     	session = ((HttpServletRequest) session).getSession(true); // create new session
 
-    	System.out.println("DEBUG >>> Fresh session created for new login OTP request");
-
-
-        System.out.println("DEBUG >>> Received selectedHome from form: " + selectedHome);
-
         Optional<User> userOpt = userRepository.findByEmail(email);
         Optional<AddedUser> addedOpt = addedUserRepository.findByEmail(email);
 
@@ -324,10 +316,6 @@ public class UserController {
         session.setAttribute("selectedEmail", email);
         session.removeAttribute("selectedHome");
         session.setAttribute("selectedHome", selectedHome);
-        System.out.println("DEBUG >>> Selected home explicitly reset in session: " + selectedHome);
-
-
-        System.out.println("DEBUG >>> Stored in session -> Email: " + email + " | Home: " + selectedHome);
 
         try {
             SimpleMailMessage message = new SimpleMailMessage();
